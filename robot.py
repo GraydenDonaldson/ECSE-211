@@ -1,5 +1,6 @@
 from utils.brick import Motor, EV3ColorSensor, NXTColorSensor, EV3UltrasonicSensor, wait_ready_sensors, reset_brick
 from math import radians, sin, cos, pi
+from time import sleep
 class Robot:
 
     # ============================================================
@@ -8,6 +9,13 @@ class Robot:
 
     WHEEL_RADIUS = 3.0        # cm, the radius of the wheels, used to calculate distance traveled
     TRACK_WIDTH = 10.0        # cm   -> adjust if angle is off
+
+    # ============================================================
+    # ROBOT CODE CONSTANTS
+    # ============================================================
+
+    SPEED = 1.0
+    LOOP_DOWNTIME = 0.1
 
 
     def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
@@ -49,6 +57,7 @@ class Robot:
             while True:
                 self.update_odometer()
                 lab_code()
+                sleep(self.LOOP_DOWNTIME)
         except KeyboardInterrupt:
             print("Manualluy Interupted")
         except self.TaskCompleted:
