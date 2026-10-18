@@ -15,8 +15,8 @@ class Robot:
     # ROBOT CODE CONSTANTS
     # ============================================================
 
-    SPEED = 90.0
-    LOOP_DOWNTIME = 0.1
+    SPEED = 90.0             # degrees per second, standard speed for the robot
+    LOOP_DOWNTIME = 0.1      # seconds, the time the robot pauses in between cycles
     
     # ============================================================
     # COLOR CONSTANTS
@@ -42,15 +42,21 @@ class Robot:
         """
         self.left_motor = Motor(left_motor_id)
         self.right_motor = Motor(right_motor_id)
-        self.ultrasonic_sensor = self.create_sensor(ultrasonic_sensor_id, "EV3Ultrasonic")
-        self.left_color_sensor = self.create_sensor(left_light_sensor_id, left_sensor_type)
-        self.right_color_sensor = self.create_sensor(right_light_sensor_id, right_sensor_type)
-        self.x_pos = 0.0
-        self.y_pos = 0.0
+        self.ultrasonic_sensor = self._create_sensor(ultrasonic_sensor_id, "EV3Ultrasonic")
+        self.left_color_sensor = self._create_sensor(left_light_sensor_id, left_sensor_type)
+        self.right_color_sensor = self._create_sensor(right_light_sensor_id, right_sensor_type)
+        # Initial position is to the side of (0, 0)
+        self.x_pos = -30.48/2
+        self.y_pos = -30.48/2
         self.theta = 0.0
+        self.y_block = 0
+        self.x_block = 0
 
+        # Values need for the odometer calculations
         self.previous_left_encoder = self.left_motor.get_encoder()
         self.previous_right_encoder = self.right_motor.get_encoder()
+
+        # Setting a standard for color sensors
 
 
 
@@ -62,6 +68,7 @@ class Robot:
     # ============================================================
 
     def simple(self, left_speed, right_speed):
+        """Simple function to update wheel speeds"""
         self.right_motor.set_dps(right_speed)
         self.left_motor.set_dps(left_speed)
 
@@ -92,7 +99,7 @@ class Robot:
     # ROBOT SENSOR FUNCTIONS
     # ============================================================
 
-    def create_sensor(self, id : int, stype : str):
+    def _create_sensor(self, id : int, stype : str):
         """
         Helper function for constructor
 
@@ -117,6 +124,8 @@ class Robot:
         average_left = sum(self.left_color_sensor.get_rgb()) / 3
         return average_left < self.BLACK_LEFT_AVERAGE, average_right < self.BLACK_RIGHT_AVERAGE
 
+    def _convert_block_to_coordinates(self, block_number):
+        return (block_number - 1) * 30.48
 
     def execute(self, setup, body):
         """
@@ -188,35 +197,26 @@ class Robot:
             else:
                 self.theta -= self.theta % 90
 
-            # Updating Position:
-            if self.theta == 0 or self.theta == 180:
-                # Update Y direction
-                robot_pos = self.y_pos + 15 # Distance from edge to robot in y direction
-                difference_from_line = robot_pos % 30
-
-                # Snap to nearest line
-                if difference_from_line > 15:
-                    robot_pos += 30 - difference_from_line
-                else:
-                    robot_pos -= difference_from_line
-                
-                # Adjust for sensor distance
-                robot_pos -= self.DISTANCE_TO_CENTER
-                self.y_pos = robot_pos
+            # Update block and position
+            if self.theta == 0:
+                # Facing North
+                self.y_block += 1
+                self.y_pos = self._convert_block_to_coordinates(self.y_block) - self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+            elif self.theta == 90:
+                # Facing East
+                self.x_block += 1
+                self.x_pos = self._convert_block_to_coordinates(self.x_block) - self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+            elif self.theta == 180:
+                # Facing South
+                self.y_block -= 1
+                self.y_pos = self._convert_block_to_coordinates(self.y_block) + self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+            elif self.theta == 270:
+                # Facing West
+                self.x_block
+                self.x_pos = self._convert_block_to_coordinates(self.x_block) + self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
             else:
-                # Update X direction
-                robot_pos = self.x_pos + 15 # Distance from edge to robot in x direction
-                difference_from_line = robot_pos % 30
-
-                # Snap to nearest line
-                if difference_from_line > 15:
-                    robot_pos += 30 - difference_from_line
-                else:
-                    robot_pos -= difference_from_line
-                
-                # Adjust for sensor distance
-                robot_pos -= self.DISTANCE_TO_CENTER
-                self.x_pos = robot_pos
+                # The position isn't snapping correctly
+                print(f"Currently facing: {self.theta}")
 
                     
     
