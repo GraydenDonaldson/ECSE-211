@@ -1,5 +1,5 @@
 from utils.brick import Motor, EV3ColorSensor, NXTColorSensor, EV3UltrasonicSensor, wait_ready_sensors, reset_brick
-from math import radians, sin, cos, pi
+from math import radians, sin, cos, pi, degrees
 from time import sleep
 class Robot:
 
@@ -7,15 +7,23 @@ class Robot:
     # ROBOT PHYSICAL CONSTANTS
     # ============================================================
 
-    WHEEL_RADIUS = 3.0        # cm, the radius of the wheels, used to calculate distance traveled
-    TRACK_WIDTH = 10.0        # cm   -> adjust if angle is off
+    WHEEL_RADIUS = 2.0        # cm, the radius of the wheels, used to calculate distance traveled
+    TRACK_WIDTH = 14.0        # cm, the distance between the centers of the wheels, used to calculate delta theta
+    DISTANCE_TO_CENTER  = 7.3 # cm, the distance from the sensors to the center of the robot
 
     # ============================================================
     # ROBOT CODE CONSTANTS
     # ============================================================
 
-    SPEED = 1.0
+    SPEED = 90.0
     LOOP_DOWNTIME = 0.1
+    
+    # ============================================================
+    # COLOR CONSTANTS
+    # ============================================================
+
+    BLACK_LEFT_AVERAGE = 80
+    BLACK_RIGHT_AVERAGE = 450
 
 
     def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
@@ -41,51 +49,50 @@ class Robot:
         self.y_pos = 0.0
         self.theta = 0.0
 
+        self.previous_left_encoder = self.left_motor.get_encoder()
+        self.previous_right_encoder = self.right_motor.get_encoder()
+
+
 
         # Always waits to return till sensors are online
         wait_ready_sensors()
 
-    def execute(self, lab_code):
-        """
-        Function to execute an operation with the robot. Runs continously until a error is thrown, a goal TaskCompleted exception is raised, or a KeyBoardInterupt is passed.
-        Will automatically update odometer details. 
+    # ============================================================
+    # ROBOT MOVEMENT FUNCTIONS
+    # ============================================================
 
-        Args:
-            lab_code (func): the lab code to execute
-        """
-        try:
-            while True:
+    def simple(self, left_speed, right_speed):
+        self.right_motor.set_dps(right_speed)
+        self.left_motor.set_dps(left_speed)
+
+    def go_distance(self, distance):
+        self.simple(self.SPEED, self.SPEED)
+        curr_x, curr_y = self.x_pos, self.y_pos
+        while ((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5 < distance:
+            self.update_odometer()
+
+    def turn_right_angle(self, angle):
+        curr_theta = self.theta
+        self.simple(self.SPEED, -self.SPEED)
+        if curr_theta + angle > 360:
+            while (curr_theta + self.theta) % 360 < angle:
                 self.update_odometer()
-                lab_code()
-                sleep(self.LOOP_DOWNTIME)
-        except KeyboardInterrupt:
-            print("Manualluy Interupted")
-        except self.TaskCompleted:
-            print("Successfully completed goal, terminated")
-        except Exception as e:
-            print(e)
-        finally:
-            self.right_motor.set_dps(0)
-            self.left_motor.set_dps(0)
-            reset_brick()
+        else:
+            while abs(curr_theta-self.theta) < angle:
+                self.update_odometer()
 
-    def update_odometer(self):
-        """
-        Function to update the odomotor (i.e. x_pos, y_pos, and theta), called by execute
-        """
-        L = self.left_motor.get_encoder()
-        R = self.right_motor.get_encoder()
-        dL = radians(L - prev_L) * self.WHEEL_RADIUS
-        dR = radians(R - prev_R) * self.WHEEL_RADIUS
-        prev_L, prev_R = L, R
-        d = (dL + dR) / 2
-        dtheta = (dL - dR) / self.TRACK_WIDTH      # left fwd + right back -> theta increases
-        self.x_pos += d * sin(self.theta + dtheta / 2)
-        self.y_pos += d * cos(self.theta + dtheta / 2)
-        self.theta = (self.theta + dtheta) % (2 * pi)
+    def float_motors(self):
+        self.left_motor.float_motor()
+        self.right_motor.float_motor()
+        while(True):
+            self.update_odometer()
+            sleep(0.01)
 
+    # ============================================================
+    # ROBOT SENSOR FUNCTIONS
+    # ============================================================
 
-    def create_sensor(id : int, stype : str):
+    def create_sensor(self, id : int, stype : str):
         """
         Helper function for constructor
 
@@ -104,7 +111,117 @@ class Robot:
             return EV3UltrasonicSensor(id)
         else:
             raise KeyError("Invalid Sensor Type")
+    
+    def _over_black(self):
+        average_right = sum(self.right_color_sensor.get_rgb()) / 3
+        average_left = sum(self.left_color_sensor.get_rgb()) / 3
+        return average_left < self.BLACK_LEFT_AVERAGE, average_right < self.BLACK_RIGHT_AVERAGE
+
+
+    def execute(self, setup, body):
+        """
+        Function to execute an operation with the robot. Runs continously until a error is thrown, a goal TaskCompleted exception is raised, or a KeyBoardInterupt is passed.
+        Will automatically update odometer details. 
+
+        Args:
+            setup(func): the lab code to execute before the while loop
+            body (func): the lab code to execute in the while loop
+        """
+        try:
+            setup()
+            while True:
+                self.update_odometer()
+                body()
+                sleep(self.LOOP_DOWNTIME)
+        except KeyboardInterrupt:
+            print("Manualluy Interupted")
+        except self.TaskCompleted:
+            print("Successfully completed goal, terminated")
+        except Exception as e:
+            print(e)
+        finally:
+            self.right_motor.set_dps(0)
+            self.left_motor.set_dps(0)
+            reset_brick()
+
+    def update_odometer(self):
+        """
+        Function to update the odomotor (i.e. x_pos, y_pos, and theta), called by execute once every cycle. 
+
+        The first part updates the physical position by calculating distance traved using arc length of the wheel, and then the change
+        in angle using a small angle approx.
+        """
+        L = self.left_motor.get_encoder()
+        R = self.right_motor.get_encoder()
+        # angle * radius = arc length
+        dL = radians(L - self.previous_left_encoder) * self.WHEEL_RADIUS
+        dR = radians(R - self.previous_right_encoder) * self.WHEEL_RADIUS
+        self.previous_left_encoder, self.previous_right_encoder = L, R
+        d = (dL + dR) / 2 # Distance Traveled (average)
+        # Using dL-dR as opposite side of triangle, TRACK_WIDTH as hypotonous, and small angle aprox for sin dtheta = opp/hyp:
+        dtheta = (dL - dR) / self.TRACK_WIDTH      # left fwd + right back -> theta increases
+        self.x_pos += d * sin(radians(self.theta) + dtheta / 2)
+        self.y_pos += d * cos(radians(self.theta) + dtheta / 2)
+        self.theta = (self.theta + degrees(dtheta)) % 360.0
+        print(f"Current x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
+        left_over, right_over = self._over_black()
+        print(f"Left over black: {left_over}, Right over black: {right_over}")
+        if left_over or right_over:
+            # One sensor on line other off, shift till both on top
+            if right_over:
+                self.simple(self.SPEED, 0)
+            else:
+                self.simple(0, self.SPEED)
+            while not (left_over and right_over) and (not left_over and not right_over):
+                    # Terminates either when both or over or neither are over (incase of over correction)
+                    self.update_odometer()
+                    left_over, right_over = self._over_black()
+
+            # Return the robot to moving straight 
+            self.simple(self.SPEED, self.SPEED)
+
+            # Both sensors over black line, snap to 90 degrees, update position:
+
+            # Snapping Angle:
+            if self.theta % 90 > 45: 
+                self.theta += 90 - (self.theta % 90)
+            else:
+                self.theta -= self.theta % 90
+
+            # Updating Position:
+            if self.theta == 0 or self.theta == 180:
+                # Update Y direction
+                robot_pos = self.y_pos + 15 # Distance from edge to robot in y direction
+                difference_from_line = robot_pos % 30
+
+                # Snap to nearest line
+                if difference_from_line > 15:
+                    robot_pos += 30 - difference_from_line
+                else:
+                    robot_pos -= difference_from_line
+                
+                # Adjust for sensor distance
+                robot_pos -= self.DISTANCE_TO_CENTER
+                self.y_pos = robot_pos
+            else:
+                # Update X direction
+                robot_pos = self.x_pos + 15 # Distance from edge to robot in x direction
+                difference_from_line = robot_pos % 30
+
+                # Snap to nearest line
+                if difference_from_line > 15:
+                    robot_pos += 30 - difference_from_line
+                else:
+                    robot_pos -= difference_from_line
+                
+                # Adjust for sensor distance
+                robot_pos -= self.DISTANCE_TO_CENTER
+                self.x_pos = robot_pos
+
+                    
+    
         
     class TaskCompleted(Exception):
         """Raised when the lab code is meant to exit after successfully completing all objectives"""
         pass
+    
