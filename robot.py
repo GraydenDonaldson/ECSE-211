@@ -1,6 +1,7 @@
 from utils.brick import Motor, EV3ColorSensor, NXTColorSensor, EV3UltrasonicSensor, wait_ready_sensors, reset_brick
 from math import radians, sin, cos, pi, degrees
 from time import sleep
+from traceback import print_exc
 class Robot:
 
     # ============================================================
@@ -10,6 +11,8 @@ class Robot:
     WHEEL_RADIUS = 2.0        # cm, the radius of the wheels, used to calculate distance traveled
     TRACK_WIDTH = 14.0        # cm, the distance between the centers of the wheels, used to calculate delta theta
     DISTANCE_TO_CENTER  = 7.3 # cm, the distance from the sensors to the center of the robot
+
+    SQUARE_DIM = 30.48        # cm, the length of the side of the square
 
     # ============================================================
     # ROBOT CODE CONSTANTS
@@ -22,8 +25,8 @@ class Robot:
     # COLOR CONSTANTS
     # ============================================================
 
-    BLACK_LEFT_AVERAGE = 80
-    BLACK_RIGHT_AVERAGE = 450
+    BLACK_LEFT_DIFFERENCE = 20
+    BLACK_RIGHT_DIFFERENCE = 50
 
 
     def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
@@ -46,22 +49,23 @@ class Robot:
         self.left_color_sensor = self._create_sensor(left_light_sensor_id, left_sensor_type)
         self.right_color_sensor = self._create_sensor(right_light_sensor_id, right_sensor_type)
         # Initial position is to the side of (0, 0)
-        self.x_pos = -30.48/2
-        self.y_pos = -30.48/2
+        self.x_pos = -self.SQUARE_DIM/2
+        self.y_pos = -self.SQUARE_DIM/2
         self.theta = 0.0
-        self.y_block = 0
-        self.x_block = 0
+
+        # Downtime Flag for line detection
+        self.line_downtime_flag = False
+
+        # Always waits to return till sensors are online
+        wait_ready_sensors()
 
         # Values need for the odometer calculations
         self.previous_left_encoder = self.left_motor.get_encoder()
         self.previous_right_encoder = self.right_motor.get_encoder()
 
         # Setting a standard for color sensors
+        self.ground_average = self._find_ground_color()
 
-
-
-        # Always waits to return till sensors are online
-        wait_ready_sensors()
 
     # ============================================================
     # ROBOT MOVEMENT FUNCTIONS
@@ -77,10 +81,16 @@ class Robot:
         curr_x, curr_y = self.x_pos, self.y_pos
         while ((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5 < distance:
             self.update_odometer()
+    
+    def _pivot_right(self):
+        self.simple(self.SPEED, -self.SPEED)
+
+    def _pivot_left(self):
+        self.simple(-self.SPEED, self.SPEED)
 
     def turn_right_angle(self, angle):
         curr_theta = self.theta
-        self.simple(self.SPEED, -self.SPEED)
+        self._pivot_right()
         if curr_theta + angle > 360:
             while (curr_theta + self.theta) % 360 < angle:
                 self.update_odometer()
@@ -120,12 +130,44 @@ class Robot:
             raise KeyError("Invalid Sensor Type")
     
     def _over_black(self):
-        average_right = sum(self.right_color_sensor.get_rgb()) / 3
-        average_left = sum(self.left_color_sensor.get_rgb()) / 3
-        return average_left < self.BLACK_LEFT_AVERAGE, average_right < self.BLACK_RIGHT_AVERAGE
+        right = self.right_color_sensor.get_rgb()
+        left = self.left_color_sensor.get_rgb()
+        
+        ground_left, ground_right = self.ground_average
+
+        # Removing Sensor Error
+        if None in right:
+            average_right = ground_right
+        else:
+            average_right = sum(right) / 3
+        if None in left:
+            average_left = ground_left
+        else:
+            average_left = sum(left) / 3
+        
+        
+        return average_left < ground_left - self.BLACK_LEFT_DIFFERENCE, average_right < ground_right - self.BLACK_RIGHT_DIFFERENCE
+
+    def _find_ground_color(self):
+        l, r = 0, 0
+        for _ in range (20):
+            r += sum(self.right_color_sensor.get_rgb()) / 3
+            l +=  sum(self.left_color_sensor.get_rgb()) / 3
+            sleep(0.1)
+        return l / 20, r / 20
+
+    # ============================================================
+    # GENERAL HELPER FUNCTIONS
+    # ============================================================
 
     def _convert_block_to_coordinates(self, block_number):
-        return (block_number - 1) * 30.48
+        return (block_number - 1) * SQUARE_DIM
+
+    def _snap_float_to_nearest_multiple(self, value, multiple):
+        if value % multiple > multiple/2: 
+            return value + multiple - (value % multiple)
+        else:
+            return value - value % multiple
 
     def execute(self, setup, body):
         """
@@ -146,8 +188,8 @@ class Robot:
             print("Manualluy Interupted")
         except self.TaskCompleted:
             print("Successfully completed goal, terminated")
-        except Exception as e:
-            print(e)
+        except Exception:
+            print_exc()
         finally:
             self.right_motor.set_dps(0)
             self.left_motor.set_dps(0)
@@ -174,49 +216,54 @@ class Robot:
         self.theta = (self.theta + degrees(dtheta)) % 360.0
         print(f"Current x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
         left_over, right_over = self._over_black()
-        print(f"Left over black: {left_over}, Right over black: {right_over}")
-        if left_over or right_over:
+        if left_over or right_over and not self.line_downtime_flag:
             # One sensor on line other off, shift till both on top
             if right_over:
-                self.simple(self.SPEED, 0)
+                self._pivot_right()
             else:
-                self.simple(0, self.SPEED)
-            while not (left_over and right_over) and (not left_over and not right_over):
+                self._pivot_left()
+            while not (left_over and right_over) and not (not left_over and not right_over):
                     # Terminates either when both or over or neither are over (incase of over correction)
-                    self.update_odometer()
                     left_over, right_over = self._over_black()
+                    sleep(self.LOOP_DOWNTIME)
+
+            # If a line was hit, wait till it was crossed before detecting a new one
+            # This flag doesn't trigger in the case the loop terminated when both the sensors suddenly saw no black
+            self.line_downtime_flag = left_over and right_over 
 
             # Return the robot to moving straight 
             self.simple(self.SPEED, self.SPEED)
-
             # Both sensors over black line, snap to 90 degrees, update position:
 
             # Snapping Angle:
-            if self.theta % 90 > 45: 
-                self.theta += 90 - (self.theta % 90)
-            else:
-                self.theta -= self.theta % 90
+            self.theta = self._snap_float_to_nearest_multiple(self.theta, 90.0)
+            self.theta = self.theta % 360.0
 
-            # Update block and position
+            # Update position
             if self.theta == 0:
                 # Facing North
-                self.y_block += 1
-                self.y_pos = self._convert_block_to_coordinates(self.y_block) - self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                self.y_pos = self._snap_float_to_nearest_multiple(self.y_pos, self.SQUARE_DIM)
+                self.y_pos -= self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
             elif self.theta == 90:
                 # Facing East
-                self.x_block += 1
-                self.x_pos = self._convert_block_to_coordinates(self.x_block) - self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                self.x_pos = self._snap_float_to_nearest_multiple(self.x_pos, self.SQUARE_DIM)
+                self.x_pos -= self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
             elif self.theta == 180:
                 # Facing South
-                self.y_block -= 1
-                self.y_pos = self._convert_block_to_coordinates(self.y_block) + self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                self.y_pos = self._snap_float_to_nearest_multiple(self.y_pos, self.SQUARE_DIM)
+                self.y_pos += self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
             elif self.theta == 270:
                 # Facing West
-                self.x_block
-                self.x_pos = self._convert_block_to_coordinates(self.x_block) + self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                self.x_pos = self._snap_float_to_nearest_multiple(self.x_pos, self.SQUARE_DIM)
+                self.x_pos += self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
             else:
                 # The position isn't snapping correctly
                 print(f"Currently facing: {self.theta}")
+        else:
+            # handling a downtime flag: saw a black line, so wait until completely off before we can detect a new one
+            left_over, right_over = self._over_black()
+            if not left_over and not right_over:
+                self.line_downtime_flag = False
 
                     
     
