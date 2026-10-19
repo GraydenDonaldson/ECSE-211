@@ -139,6 +139,19 @@ class Robot:
                 sleep(self.LOOP_DOWNTIME)
         self.simple(0,0)
 
+    def face_angle(self, angle):
+        """Turns to face a specific angle
+        
+        Args:
+            angle (float): the angle to turn to 
+
+        """
+
+        if self.theta > angle:
+            self.turn_right_angle(self.theta-angle)
+        else:
+            self.turn_left_angle(angle-self.theta)
+
 
     def float_motors(self):
         self.left_motor.float_motor()
