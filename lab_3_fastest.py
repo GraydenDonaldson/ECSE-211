@@ -23,3 +23,18 @@ def body():
         target_x, target_y = waypoint
         target_x = suzuki.convert_block_to_coordinates(target_x)
         target_y = suzuki.convert_block_to_coordinates(target_y)
+        
+    def face_toward(self, target_x, target_y):
+        a = target_x - self.x_pos
+        b = target_y - self.y_pos
+        angle = atan(a/b) % 360
+        if angle < 0:
+            self.turn_left_angle(abs(angle))
+        self.turn_right_angle(angle)
+
+
+    def go_toward(self, target_x, target_y):
+        a = target_x - self.x_pos
+        b = target_y - self.y_pos
+        d = (((a^2)+(b^2))^(0.5))
+        self.go_distance(d)
