@@ -100,16 +100,45 @@ class Robot:
         self.simple(-self.SPEED/2, self.SPEED/2)
 
     def turn_right_angle(self, angle):
-        curr_theta = self.theta
+        """Turns right by a specific angle
+        
+        Args:
+            angle (float): the angle to turn right by 
+
+        """
+        intial_theta = self.theta
         self._pivot_right()
-        if curr_theta + angle > 360:
-            while (curr_theta + self.theta) % 360 < angle - (360-curr_theta):
+        if intial_theta + angle > 360:
+            # Incase the angle wraps back down to 0
+            while (intial_theta + self.theta) % 360 < angle - (360-intial_theta):
                 self.update_odometer()
                 sleep(self.LOOP_DOWNTIME)
         else:
-            while abs(curr_theta-self.theta) < angle:
+            while abs(intial_theta-self.theta) < angle:
                 self.update_odometer()
                 sleep(self.LOOP_DOWNTIME)
+        self.simple(0,0)
+
+    def turn_left_angle(self, angle):
+        """Turns left by a specific angle
+        
+        Args:
+            angle (float): the angle to turn left by 
+
+        """
+        intial_theta = self.theta
+        self._pivot_left()
+        if intial_theta - angle < 0:
+            # Incase the angle wraps back up to 360 
+            while 0.0 <= self.theta <= intial_theta or 360.0 - (angle-intial_theta) <= self.theta <= 360.0:
+                self.update_odometer()
+                sleep(self.LOOP_DOWNTIME)
+        else:
+            while abs(intial_theta-self.theta) < angle:
+                self.update_odometer()
+                sleep(self.LOOP_DOWNTIME)
+        self.simple(0,0)
+
 
     def float_motors(self):
         self.left_motor.float_motor()
@@ -290,4 +319,5 @@ class Robot:
     class TaskCompleted(Exception):
         """Raised when the lab code is meant to exit after successfully completing all objectives"""
         pass
+
 

@@ -19,3 +19,15 @@ def body():
         target_x, target_y = waypoint
         target_x = suzuki.convert_block_to_coordinates(target_x)
         target_y = suzuki.convert_block_to_coordinates(target_y)
+
+        if target_x > suzuki.x_pos:
+            pass
+        else:
+            pass
+
+        if target_y > suzuki.y_pos:
+            pass
+        else:
+            pass
+
+    raise suzuki.TaskCompleted
