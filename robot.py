@@ -53,6 +53,9 @@ class Robot:
         self.y_pos = -self.SQUARE_DIM/2
         self.theta = 0.0
 
+        # To disable line updating
+        self.line_update = True
+
         # Downtime Flag for line detection
         self.line_downtime_flag = False
         self.line_downtime_flag_start = time()
@@ -228,60 +231,61 @@ class Robot:
         print(f"Current x: {self.x_pos:.2f}, Current y: {self.y_pos:.2f}, Current theta: {self.theta:.2f}")
 
     def correct_odometer(self):
-        left_over, right_over = self._over_black()
-        if (left_over or right_over) and not self.line_downtime_flag:
-            # One sensor on line other off, shift till both on top
-            if right_over:
-                self._pivot_right()
+        if self.line_update:
+            left_over, right_over = self._over_black()
+            if (left_over or right_over) and not self.line_downtime_flag:
+                # One sensor on line other off, shift till both on top
+                if right_over:
+                    self._pivot_right()
+                else:
+                    self._pivot_left()
+                while not (left_over and right_over) and not (not left_over and not right_over):
+                        # Terminates either when both or over or neither are over (incase of over correction)
+                        left_over, right_over = self._over_black()
+                        self.update_odometer()
+                        sleep(self.LOOP_DOWNTIME)
+
+                # If a line was hit, wait till it was crossed before detecting a new one
+                # This flag doesn't trigger in the case the loop terminated when both the sensors suddenly saw no black
+                self.line_downtime_flag = True
+                self.line_downtime_flag_start = time()
+                print("flag added")
+
+                # Return the robot to moving straight 
+                self.straight()
+                # Both sensors over black line, snap to 90 degrees, update position:
+
+                # Snapping Angle:
+                self.theta = self._snap_float_to_nearest_multiple(self.theta, 90.0)
+                self.theta = self.theta % 360.0
+                
+                print(f"Before: x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
+                # Update position
+                if self.theta == 0:
+                    # Facing North
+                    self.y_pos = self._snap_float_to_nearest_multiple(self.y_pos, self.SQUARE_DIM)
+                    self.y_pos -= self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                elif self.theta == 90:
+                    # Facing East
+                    self.x_pos = self._snap_float_to_nearest_multiple(self.x_pos, self.SQUARE_DIM)
+                    self.x_pos -= self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                elif self.theta == 180:
+                    # Facing South
+                    self.y_pos = self._snap_float_to_nearest_multiple(self.y_pos, self.SQUARE_DIM)
+                    self.y_pos += self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                elif self.theta == 270:
+                    # Facing West
+                    self.x_pos = self._snap_float_to_nearest_multiple(self.x_pos, self.SQUARE_DIM)
+                    self.x_pos += self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
+                else:
+                    # The position isn't snapping correctly
+                    print(f"Currently facing: {self.theta}")
+                
             else:
-                self._pivot_left()
-            while not (left_over and right_over) and not (not left_over and not right_over):
-                    # Terminates either when both or over or neither are over (incase of over correction)
-                    left_over, right_over = self._over_black()
-                    self.update_odometer()
-                    sleep(self.LOOP_DOWNTIME)
-
-            # If a line was hit, wait till it was crossed before detecting a new one
-            # This flag doesn't trigger in the case the loop terminated when both the sensors suddenly saw no black
-            self.line_downtime_flag = True
-            self.line_downtime_flag_start = time()
-            print("flag added")
-
-            # Return the robot to moving straight 
-            self.straight()
-            # Both sensors over black line, snap to 90 degrees, update position:
-
-            # Snapping Angle:
-            self.theta = self._snap_float_to_nearest_multiple(self.theta, 90.0)
-            self.theta = self.theta % 360.0
-            
-            print(f"Before: x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
-            # Update position
-            if self.theta == 0:
-                # Facing North
-                self.y_pos = self._snap_float_to_nearest_multiple(self.y_pos, self.SQUARE_DIM)
-                self.y_pos -= self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
-            elif self.theta == 90:
-                # Facing East
-                self.x_pos = self._snap_float_to_nearest_multiple(self.x_pos, self.SQUARE_DIM)
-                self.x_pos -= self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
-            elif self.theta == 180:
-                # Facing South
-                self.y_pos = self._snap_float_to_nearest_multiple(self.y_pos, self.SQUARE_DIM)
-                self.y_pos += self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
-            elif self.theta == 270:
-                # Facing West
-                self.x_pos = self._snap_float_to_nearest_multiple(self.x_pos, self.SQUARE_DIM)
-                self.x_pos += self.DISTANCE_TO_CENTER # Adjusting for the fact that the sensor is infront of body
-            else:
-                # The position isn't snapping correctly
-                print(f"Currently facing: {self.theta}")
-            
-        else:
-            # handling a downtime flag: saw a black line, so wait until completely off before we can detect a new one
-            if abs(time() - self.line_downtime_flag_start) > 1.0 and self.line_downtime_flag:
-                self.line_downtime_flag = False
-                print("flag removed")
+                # handling a downtime flag: saw a black line, so wait until completely off before we can detect a new one
+                if abs(time() - self.line_downtime_flag_start) > 1.0 and self.line_downtime_flag:
+                    self.line_downtime_flag = False
+                    print("flag removed")
 
                     
     
