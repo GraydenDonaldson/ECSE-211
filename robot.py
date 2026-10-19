@@ -10,7 +10,7 @@ class Robot:
 
     WHEEL_RADIUS = 2.0        # cm, the radius of the wheels, used to calculate distance traveled
     TRACK_WIDTH = 14.0        # cm, the distance between the centers of the wheels, used to calculate delta theta
-    DISTANCE_TO_CENTER  = 7.3 # cm, the distance from the sensors to the center of the robot
+    DISTANCE_TO_CENTER  = 4   # cm, the distance from the sensors to the center of the robot
 
     SQUARE_DIM = 30.48        # cm, the length of the side of the square
 
@@ -19,14 +19,14 @@ class Robot:
     # ============================================================
 
     SPEED = 90.0             # degrees per second, standard speed for the robot
-    LOOP_DOWNTIME = 0.1      # seconds, the time the robot pauses in between cycles
+    LOOP_DOWNTIME = 0.01      # seconds, the time the robot pauses in between cycles
     
     # ============================================================
     # COLOR CONSTANTS
     # ============================================================
 
-    BLACK_LEFT_DIFFERENCE = 20
-    BLACK_RIGHT_DIFFERENCE = 50
+    BLACK_LEFT_DIFFERENCE = 30
+    BLACK_RIGHT_DIFFERENCE = 60
 
 
     def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
@@ -78,23 +78,29 @@ class Robot:
         self.left_motor.set_dps(left_speed)
 
     def go_distance(self, distance):
-        self.simple(self.SPEED, self.SPEED)
+        self.straight()
         curr_x, curr_y = self.x_pos, self.y_pos
         while ((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5 <= distance:
+            print(((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5)
             self.update_odometer()
+            self.correct_odometer()
             sleep(self.LOOP_DOWNTIME)
+            
+    def straight(self):
+        self.simple(self.SPEED, self.SPEED-1)
+
     
     def _pivot_right(self):
-        self.simple(self.SPEED, -self.SPEED)
+        self.simple(self.SPEED/2, -self.SPEED/2)
 
     def _pivot_left(self):
-        self.simple(-self.SPEED, self.SPEED)
+        self.simple(-self.SPEED/2, self.SPEED/2)
 
     def turn_right_angle(self, angle):
         curr_theta = self.theta
         self._pivot_right()
         if curr_theta + angle > 360:
-            while (curr_theta + self.theta) % 360 < angle:
+            while (curr_theta + self.theta) % 360 < angle - (360-curr_theta):
                 self.update_odometer()
                 sleep(self.LOOP_DOWNTIME)
         else:
@@ -186,6 +192,7 @@ class Robot:
             setup()
             while True:
                 self.update_odometer()
+                self.correct_odometer()
                 body()
                 sleep(self.LOOP_DOWNTIME)
         except KeyboardInterrupt:
@@ -218,7 +225,9 @@ class Robot:
         self.x_pos += d * sin(radians(self.theta) + dtheta / 2)
         self.y_pos += d * cos(radians(self.theta) + dtheta / 2)
         self.theta = (self.theta + degrees(dtheta)) % 360.0
-        #print(f"Current x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
+        print(f"Current x: {self.x_pos:.2f}, Current y: {self.y_pos:.2f}, Current theta: {self.theta:.2f}")
+
+    def correct_odometer(self):
         left_over, right_over = self._over_black()
         if (left_over or right_over) and not self.line_downtime_flag:
             # One sensor on line other off, shift till both on top
@@ -229,6 +238,7 @@ class Robot:
             while not (left_over and right_over) and not (not left_over and not right_over):
                     # Terminates either when both or over or neither are over (incase of over correction)
                     left_over, right_over = self._over_black()
+                    self.update_odometer()
                     sleep(self.LOOP_DOWNTIME)
 
             # If a line was hit, wait till it was crossed before detecting a new one
@@ -238,7 +248,7 @@ class Robot:
             print("flag added")
 
             # Return the robot to moving straight 
-            self.simple(self.SPEED, self.SPEED)
+            self.straight()
             # Both sensors over black line, snap to 90 degrees, update position:
 
             # Snapping Angle:
@@ -266,11 +276,10 @@ class Robot:
             else:
                 # The position isn't snapping correctly
                 print(f"Currently facing: {self.theta}")
-            print(f"After: x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
             
         else:
             # handling a downtime flag: saw a black line, so wait until completely off before we can detect a new one
-            if abs(time() - self.line_downtime_flag_start) > 0.5 and self.line_downtime_flag:
+            if abs(time() - self.line_downtime_flag_start) > 1.0 and self.line_downtime_flag:
                 self.line_downtime_flag = False
                 print("flag removed")
 
@@ -280,3 +289,4 @@ class Robot:
     class TaskCompleted(Exception):
         """Raised when the lab code is meant to exit after successfully completing all objectives"""
         pass
+
