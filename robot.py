@@ -173,8 +173,8 @@ class Robot:
     # GENERAL HELPER FUNCTIONS
     # ============================================================
 
-    def _convert_block_to_coordinates(self, block_number):
-        return (block_number - 1) * SQUARE_DIM
+    def convert_block_to_coordinates(self, block_number):
+        return (block_number - 1) * self.SQUARE_DIM
 
     def _snap_float_to_nearest_multiple(self, value, multiple):
         if value % multiple > multiple/2: 
@@ -249,7 +249,6 @@ class Robot:
                 # This flag doesn't trigger in the case the loop terminated when both the sensors suddenly saw no black
                 self.line_downtime_flag = True
                 self.line_downtime_flag_start = time()
-                print("flag added")
 
                 # Return the robot to moving straight 
                 self.straight()
@@ -259,7 +258,6 @@ class Robot:
                 self.theta = self._snap_float_to_nearest_multiple(self.theta, 90.0)
                 self.theta = self.theta % 360.0
                 
-                print(f"Before: x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
                 # Update position
                 if self.theta == 0:
                     # Facing North
@@ -285,7 +283,6 @@ class Robot:
                 # handling a downtime flag: saw a black line, so wait until completely off before we can detect a new one
                 if abs(time() - self.line_downtime_flag_start) > 1.0 and self.line_downtime_flag:
                     self.line_downtime_flag = False
-                    print("flag removed")
 
                     
     

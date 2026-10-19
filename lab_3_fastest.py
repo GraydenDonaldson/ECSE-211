@@ -16,3 +16,10 @@ for i in range (4):
     x = int(input("X coordinate: "))
     y = int(input("Y coordinate: "))
     way_points.append((x, y))
+
+
+def body():
+    for waypoint in way_points:
+        target_x, target_y = waypoint
+        target_x = suzuki.convert_block_to_coordinates(target_x)
+        target_y = suzuki.convert_block_to_coordinates(target_y)
