@@ -1,6 +1,6 @@
 from utils.brick import Motor, EV3ColorSensor, NXTColorSensor, EV3UltrasonicSensor, wait_ready_sensors, reset_brick
 from math import radians, sin, cos, pi, degrees
-from time import sleep
+from time import time, sleep
 from traceback import print_exc
 class Robot:
 
@@ -55,6 +55,7 @@ class Robot:
 
         # Downtime Flag for line detection
         self.line_downtime_flag = False
+        self.line_downtime_flag_start = time()
 
         # Always waits to return till sensors are online
         wait_ready_sensors()
@@ -79,8 +80,9 @@ class Robot:
     def go_distance(self, distance):
         self.simple(self.SPEED, self.SPEED)
         curr_x, curr_y = self.x_pos, self.y_pos
-        while ((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5 < distance:
+        while ((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5 <= distance:
             self.update_odometer()
+            sleep(self.LOOP_DOWNTIME)
     
     def _pivot_right(self):
         self.simple(self.SPEED, -self.SPEED)
@@ -94,9 +96,11 @@ class Robot:
         if curr_theta + angle > 360:
             while (curr_theta + self.theta) % 360 < angle:
                 self.update_odometer()
+                sleep(self.LOOP_DOWNTIME)
         else:
             while abs(curr_theta-self.theta) < angle:
                 self.update_odometer()
+                sleep(self.LOOP_DOWNTIME)
 
     def float_motors(self):
         self.left_motor.float_motor()
@@ -214,9 +218,9 @@ class Robot:
         self.x_pos += d * sin(radians(self.theta) + dtheta / 2)
         self.y_pos += d * cos(radians(self.theta) + dtheta / 2)
         self.theta = (self.theta + degrees(dtheta)) % 360.0
-        print(f"Current x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
+        #print(f"Current x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
         left_over, right_over = self._over_black()
-        if left_over or right_over and not self.line_downtime_flag:
+        if (left_over or right_over) and not self.line_downtime_flag:
             # One sensor on line other off, shift till both on top
             if right_over:
                 self._pivot_right()
@@ -229,7 +233,9 @@ class Robot:
 
             # If a line was hit, wait till it was crossed before detecting a new one
             # This flag doesn't trigger in the case the loop terminated when both the sensors suddenly saw no black
-            self.line_downtime_flag = left_over and right_over 
+            self.line_downtime_flag = True
+            self.line_downtime_flag_start = time()
+            print("flag added")
 
             # Return the robot to moving straight 
             self.simple(self.SPEED, self.SPEED)
@@ -238,7 +244,8 @@ class Robot:
             # Snapping Angle:
             self.theta = self._snap_float_to_nearest_multiple(self.theta, 90.0)
             self.theta = self.theta % 360.0
-
+            
+            print(f"Before: x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
             # Update position
             if self.theta == 0:
                 # Facing North
@@ -259,11 +266,13 @@ class Robot:
             else:
                 # The position isn't snapping correctly
                 print(f"Currently facing: {self.theta}")
+            print(f"After: x: {self.x_pos}, Current y: {self.y_pos}, Current theta: {self.theta}")
+            
         else:
             # handling a downtime flag: saw a black line, so wait until completely off before we can detect a new one
-            left_over, right_over = self._over_black()
-            if not left_over and not right_over:
+            if abs(time() - self.line_downtime_flag_start) > 0.5 and self.line_downtime_flag:
                 self.line_downtime_flag = False
+                print("flag removed")
 
                     
     
@@ -271,4 +280,3 @@ class Robot:
     class TaskCompleted(Exception):
         """Raised when the lab code is meant to exit after successfully completing all objectives"""
         pass
-    
