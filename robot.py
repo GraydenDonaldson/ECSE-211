@@ -9,7 +9,7 @@ class Robot:
     # ============================================================
 
     WHEEL_RADIUS = 2.0        # cm, the radius of the wheels, used to calculate distance traveled
-    TRACK_WIDTH = 14.0        # cm, the distance between the centers of the wheels, used to calculate delta theta
+    TRACK_WIDTH = 15.5        # cm, the distance between the centers of the wheels, used to calculate delta theta
     DISTANCE_TO_CENTER  = 4   # cm, the distance from the sensors to the center of the robot
 
     SQUARE_DIM = 30.48        # cm, the length of the side of the square
@@ -84,10 +84,11 @@ class Robot:
         self.straight()
         curr_x, curr_y = self.x_pos, self.y_pos
         while ((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5 <= distance:
-            print(((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5)
+            #print(((curr_x-self.x_pos)**2 + (curr_y-self.y_pos)**2)**0.5)
             self.update_odometer()
             self.correct_odometer()
             sleep(self.LOOP_DOWNTIME)
+        self.simple(0,0)
             
     def straight(self):
         self.simple(self.SPEED, self.SPEED-1)
@@ -138,7 +139,7 @@ class Robot:
                 self.update_odometer()
                 sleep(self.LOOP_DOWNTIME)
         self.simple(0,0)
-
+    
     def face_angle(self, angle):
         """Turns to face a specific angle
         
@@ -147,11 +148,10 @@ class Robot:
 
         """
 
-        if self.theta > angle:
-            self.turn_right_angle(self.theta-angle)
+        if self.theta < angle:
+            self.turn_right_angle(abs(angle-self.theta))
         else:
-            self.turn_left_angle(angle-self.theta)
-
+            self.turn_left_angle(abs(angle-self.theta))
 
     def float_motors(self):
         self.left_motor.float_motor()
@@ -216,7 +216,7 @@ class Robot:
     # ============================================================
 
     def convert_block_to_coordinates(self, block_number):
-        return (block_number - 1) * self.SQUARE_DIM
+        return block_number * self.SQUARE_DIM
 
     def _snap_float_to_nearest_multiple(self, value, multiple):
         if value % multiple > multiple/2: 
@@ -270,7 +270,7 @@ class Robot:
         self.x_pos += d * sin(radians(self.theta) + dtheta / 2)
         self.y_pos += d * cos(radians(self.theta) + dtheta / 2)
         self.theta = (self.theta + degrees(dtheta)) % 360.0
-        print(f"Current x: {self.x_pos:.2f}, Current y: {self.y_pos:.2f}, Current theta: {self.theta:.2f}")
+        #print(f"Current x: {self.x_pos:.2f}, Current y: {self.y_pos:.2f}, Current theta: {self.theta:.2f}")
 
     def correct_odometer(self):
         if self.line_update:
