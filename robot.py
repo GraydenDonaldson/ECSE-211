@@ -25,7 +25,7 @@ class Robot:
     # COLOR CONSTANTS
     # ============================================================
 
-    BLACK_PERCENT = 1.9
+    BLACK_PERCENT = 0.19
 
 
     def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
@@ -198,8 +198,8 @@ class Robot:
             average_left = ground_left
         else:
             average_left = sum(left) / 3
-        
-        
+            
+
         return average_left < ground_left - ground_left*self.BLACK_PERCENT, average_right < ground_right - ground_right*self.BLACK_PERCENT
     def _find_ground_color(self):
         l, r = 0, 0
@@ -268,7 +268,7 @@ class Robot:
         self.x_pos += d * sin(radians(self.theta) + dtheta / 2)
         self.y_pos += d * cos(radians(self.theta) + dtheta / 2)
         self.theta = (self.theta + degrees(dtheta)) % 360.0
-        #print(f"Current x: {self.x_pos:.2f}, Current y: {self.y_pos:.2f}, Current theta: {self.theta:.2f}")
+        print(f"Current x: {self.x_pos:.2f}, Current y: {self.y_pos:.2f}, Current theta: {self.theta:.2f}")
 
     def correct_odometer(self):
         if self.line_update:
@@ -330,5 +330,6 @@ class Robot:
     class TaskCompleted(Exception):
         """Raised when the lab code is meant to exit after successfully completing all objectives"""
         pass
+
 
 
