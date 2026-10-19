@@ -9,3 +9,10 @@ suzuki.y_pos = 0
 # Disable line detection
 suzuki.line_update = False
 
+# Take waypoints from terminal
+way_points = []
+
+for i in range (4):
+    x = int(input("X coordinate: "))
+    y = int(input("Y coordinate: "))
+    way_points.append((x, y))
