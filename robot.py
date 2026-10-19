@@ -25,8 +25,7 @@ class Robot:
     # COLOR CONSTANTS
     # ============================================================
 
-    BLACK_LEFT_DIFFERENCE = 30
-    BLACK_RIGHT_DIFFERENCE = 60
+    BLACK_PERCENT = 1.9
 
 
     def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
@@ -91,7 +90,7 @@ class Robot:
         self.simple(0,0)
             
     def straight(self):
-        self.simple(self.SPEED, self.SPEED-1)
+        self.simple(self.SPEED, self.SPEED-1.5)
 
     
     def _pivot_right(self):
@@ -201,8 +200,7 @@ class Robot:
             average_left = sum(left) / 3
         
         
-        return average_left < ground_left - self.BLACK_LEFT_DIFFERENCE, average_right < ground_right - self.BLACK_RIGHT_DIFFERENCE
-
+        return average_left < ground_left - ground_left*self.BLACK_PERCENT, average_right < ground_right - ground_right*self.BLACK_PERCENT
     def _find_ground_color(self):
         l, r = 0, 0
         for _ in range (20):
