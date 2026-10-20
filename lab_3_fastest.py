@@ -4,7 +4,7 @@ from time import sleep
 
 suzuki = Robot(left_motor_id = "A", right_motor_id = "B", left_light_sensor_id=1, right_light_sensor_id=3)
 
-ERROR = 5
+ERROR = 1
 
 suzuki.x_pos = 0
 suzuki.y_pos = 0
@@ -19,6 +19,25 @@ for i in range (4):
     way_points.append((x, y))
 
 
+def angle_difference(target, current):
+    return ((target - current + 180.0) % 360.0) - 180.0
+
+def turn_to(angle):
+    suzuki.update_odometer()
+    diff = angle_difference(angle, suzuki.theta)
+    if abs(diff) < 1.0:
+        return
+    direction = 1 if diff > 0 else -1
+    turned = 0.0
+    last = suzuki.theta
+    suzuki.simple(direction * suzuki.SPEED / 2, -direction * suzuki.SPEED / 2)
+    while turned < abs(diff):
+        suzuki.update_odometer()
+        turned += direction * angle_difference(suzuki.theta, last)
+        last = suzuki.theta
+        sleep(suzuki.LOOP_DOWNTIME)
+    suzuki.simple(0, 0)
+
 def distance_to(target_x, target_y):
     a = target_x - suzuki.x_pos
     b = target_y - suzuki.y_pos
@@ -27,7 +46,7 @@ def distance_to(target_x, target_y):
 def face_toward(target_x, target_y):
     a = target_x - suzuki.x_pos
     b = target_y - suzuki.y_pos
-    suzuki.face_angle(degrees(atan2(a, b)) % 360)
+    turn_to(degrees(atan2(a, b)) % 360)
 
 def go_toward(target_x, target_y):
     suzuki.go_distance(distance_to(target_x, target_y))
