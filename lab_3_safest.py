@@ -13,6 +13,7 @@ suzuki.y_pos = 0
 way_points = []
 
 for i in range (4):
+    print(f"Coordinates #{i}")
     x = int(input("X coordinate: "))
     y = int(input("Y coordinate: "))
     way_points.append((x, y))
@@ -45,7 +46,7 @@ def body():
                 suzuki.face_angle(180)
                 suzuki.go_distance(suzuki.y_pos-target_y)
     
-    sleep(0.5)
+        sleep(0.5)
 
     raise suzuki.TaskCompleted
 
