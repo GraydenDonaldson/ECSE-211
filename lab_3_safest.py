@@ -13,9 +13,8 @@ suzuki.y_pos = 0
 way_points = []
 
 for i in range (4):
-    print(f"Coordinates #{i}")
-    x = int(input("X coordinate: "))
-    y = int(input("Y coordinate: "))
+    x = int(input(f"X coordinate {i+1}: "))
+    y = int(input(f"Y coordinate {i+1}: "))
     way_points.append((x, y))
 
 def head():
