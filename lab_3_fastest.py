@@ -65,7 +65,7 @@ def body():
             face_toward(target_x, target_y)
             go_toward(target_x, target_y)
 
-    sleep(0.5)
+        sleep(0.5)
 
     raise suzuki.TaskCompleted
 

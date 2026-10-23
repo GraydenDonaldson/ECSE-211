@@ -40,7 +40,7 @@ def body():
                 print("increase y")
                 suzuki.face_angle(0)
                 suzuki.go_distance(target_y-suzuki.y_pos)
-            elif target_y < suzuki.x_pos:
+            elif target_y < suzuki.y_pos:
                 print("decrease y")
                 suzuki.face_angle(180)
                 suzuki.go_distance(suzuki.y_pos-target_y)
