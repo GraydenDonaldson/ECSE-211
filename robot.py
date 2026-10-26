@@ -13,6 +13,8 @@ class Robot:
     DISTANCE_TO_CENTER  = 4   # cm, the distance from the sensors to the center of the robot
 
     SQUARE_DIM = 30.48        # cm, the length of the side of the square
+    ARM_MOTOR_OPEN = 0.0      # angle, when the arm motor is open     
+    ARM_MOTOR_CLOSED = 0.0    # angle, when the arm motor is closed
 
     # ============================================================
     # ROBOT CODE CONSTANTS
@@ -28,7 +30,7 @@ class Robot:
     BLACK_PERCENT = 0.19
 
 
-    def __init__(self, left_motor_id, right_motor_id, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
+    def __init__(self, left_motor_id, right_motor_id, arm_motor_id = None, left_light_sensor_id = None, right_light_sensor_id = None, ultrasonic_sensor_id = None, left_sensor_of_type_EV3 = True, left_sensor_type = "EV3Color", right_sensor_type = "NXTColor"):
         """
         Instantiates the robot, taking the port ids to connect to the sensors and motors, waits until sensors are ready to exit
 
@@ -47,6 +49,7 @@ class Robot:
         self.ultrasonic_sensor = self._create_sensor(ultrasonic_sensor_id, "EV3Ultrasonic")
         self.left_color_sensor = self._create_sensor(left_light_sensor_id, left_sensor_type)
         self.right_color_sensor = self._create_sensor(right_light_sensor_id, right_sensor_type)
+        self.arm_motor = Motor(arm_motor_id)
         # Initial position is to the side of (0, 0)
         self.x_pos = -self.SQUARE_DIM/2
         self.y_pos = -self.SQUARE_DIM/2
@@ -158,6 +161,12 @@ class Robot:
         while(True):
             self.update_odometer()
             sleep(0.01)
+
+    def open_arm(self):
+        pass
+    
+    def close_arm(self):
+        pass
 
     # ============================================================
     # ROBOT SENSOR FUNCTIONS
