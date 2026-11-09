@@ -1,5 +1,4 @@
-
-from math import radians, sin, cos, pi, degrees
+from math import radians, sin, cos, degrees
 from time import time, sleep
 
 class Odometer:

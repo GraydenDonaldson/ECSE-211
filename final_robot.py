@@ -1,5 +1,5 @@
 from utils.brick import Motor, EV3ColorSensor, NXTColorSensor, EV3UltrasonicSensor, wait_ready_sensors, reset_brick
-from time import time, sleep
+from time import sleep
 from odometer import Odometer
 
 class FinalRobot:
@@ -20,6 +20,7 @@ class FinalRobot:
 
     SPEED = 90.0              # degrees per second, standard speed for the robot
     LOOP_DOWNTIME = 0.01      # seconds, the time the robot pauses in between cycles
+    POINT_TARGET_ERROR = 5    # cm
     
 
 
@@ -54,6 +55,8 @@ class FinalRobot:
 
         # Odometer
         self.odometer = Odometer(self, self.left_color_sensor, self.right_color_sensor)
+
+        # Mapping
 
 
     # ============================================================
@@ -153,5 +156,19 @@ class FinalRobot:
         else:
             self.turn_left_angle(abs(angle-self.theta))
 
-
-
+    def safest_to_point(self, target_x, target_y):
+        print(target_x, target_y)        
+        if abs(target_x - self.x_pos()) > self.POINT_TARGET_ERROR:
+            if target_x > self.x_pos():
+                self.face_angle(90)
+                self.go_distance(target_x-self.x_pos())
+            elif target_x < self.x_pos():
+                self.face_angle(270)
+                self.go_distance(self.x_pos()-target_x)
+        if abs(target_y - self.y_pos()) > self.POINT_TARGET_ERROR:
+            if target_y > self.y_pos():
+                self.face_angle(0)
+                self.go_distance(target_y-self.y_pos())
+            elif target_y < self.y_pos():
+                self.face_angle(180)
+                self.go_distance(self.y_pos()-target_y)
