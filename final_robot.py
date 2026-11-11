@@ -37,7 +37,7 @@ class FinalRobot:
             storage_motor_id (str): the port ID of the storage emptying motor
             left_color_sensor_id (int: the port ID of the left color sensor -- Should be EV3Color
             right_color_sensor_id (int): the port ID of the right color sensor -- Should be NXTColor
-            ultrasonic_sensor_id (int): the port ID of the ultrasonic sensor
+            ultrasonic_sensor_id (int | None): the port ID of the ultrasonic sensor defualts to None for the case when no sensor attached
         """
 
         # Motors
@@ -49,13 +49,13 @@ class FinalRobot:
         # Sensors
         self.left_color_sensor = EV3ColorSensor(left_color_sensor_id)
         self.right_color_sensor = NXTColorSensor(right_color_sensor_id)
-        self.ultrasonic_sensor = EV3UltrasonicSensor(ultrasonic_sensor_id)
+        self.ultrasonic_sensor = EV3UltrasonicSensor(ultrasonic_sensor_id) if ultrasonic_sensor_id is not None else None
 
         # Setup
         wait_ready_sensors()
 
         # Odometer
-        self.odometer = Odometer(self, self.left_color_sensor, self.right_color_sensor)
+        self.odometer = Odometer(self)
 
         # Mapping
         self.map = Map(self)
@@ -76,6 +76,9 @@ class FinalRobot:
 
     def correct_odometer(self):
         self.odometer.correct_odometer()
+
+    def ultrasonic_sensor_distance(self):
+        return self.odometer.curr_reading
 
     # ============================================================
     # ROBOT MOVEMENT FUNCTIONS
@@ -159,7 +162,11 @@ class FinalRobot:
             self.turn_left_angle(abs(angle-self.theta))
 
     def safest_to_point(self, target_x, target_y):
-        print(target_x, target_y)        
+        """
+        Given a point on the map as a pair of block coordinates, navigates the robot to that point using the safest path algorithm from lab 3
+        """
+        target_x *= self.SQUARE_DIM
+        target_y *= self.SQUARE_DIM
         if abs(target_x - self.x_pos()) > self.POINT_TARGET_ERROR:
             if target_x > self.x_pos():
                 self.face_angle(90)

@@ -9,14 +9,15 @@ class Odometer:
 
     BLACK_PERCENT = 0.19     # percent of the difference in color between the line and the board
     
-    def __init__(self, robot, left_color_sensor, right_color_sensor):
+    def __init__(self, robot):
         
         # Robot
         self.robot = robot
 
         # Sensors
-        self.left_color_sensor = left_color_sensor
-        self.right_color_sensor = right_color_sensor
+        self.left_color_sensor = self.robot.left_color_sensor
+        self.right_color_sensor = self.robot.right_color_sensor
+        self.ultrasonic_sensor = self.robot.ultrasonic_sensor
         
         # Position
         self.x_pos = 0.0
@@ -33,6 +34,14 @@ class Odometer:
         # Values need for the odometer calculations
         self.previous_left_encoder = self.robot.left_motor.get_encoder()
         self.previous_right_encoder = self.robot.right_motor.get_encoder()
+
+        # Values for filtering ultrasonic sensor
+        self.curr_reading = None
+        self._ultrasonic_readings = []
+        self._inital_max_x, self._initial_max_y = 0, 0
+
+        # Setup Ultrasonic
+        self._find_initial_sensor_distance()
 
     # ============================================================
     # ROBOT SENSOR FUNCTIONS
@@ -64,12 +73,37 @@ class Odometer:
             sleep(0.1)
         return l / 20, r / 20
     
+    def _update_sensor_distance(self):
+        """
+        Updates the ultrasonic sensor reading for the robot.
+        Collects a sample size of 21 and takes the median to ensure accuracy
+        If the reading is > 200, the robot doesn't change the value until it has travel half a block of distance
+        """
+        if self.ultrasonic_sensor is not None:
+            if len(self._ultrasonic_readings) < 21:
+                self._ultrasonic_readings.append(self.ultrasonic_sensor.distance())
+            else:
+                self._ultrasonic_readings.sort()[11]
+                if self._ultrasonic_readings[11] > 200:
+                    if self._inital_max_x is None:
+                        self._inital_max_x = self.x_pos
+                        self._inital_max_y = self.y_pos
+                    elif ((self.x_pos - self._inital_max_x)**2 + (self._initial_max_y - self.y_pos)**2)**0.5 >= self.robot.SQUARE_DIM/2:
+                        self.curr_reading = self._ultrasonic_readings[11]
+                else:
+                    self.curr_reading = self._ultrasonic_readings[11]
+                    self._inital_max_x = None
+                    self._inital_max_y = None
+                self._ultrasonic_readings = []
+
+
+    def _find_initial_sensor_distance(self):
+        while self.curr_reading is None and self.ultrasonic_sensor is not None:
+            self._update_sensor_distance()
+
     # ============================================================
     # ODOMETER FUNCTIONS
     # ============================================================
-
-    def convert_block_to_coordinates(self, block_number):
-        return block_number * self.robot.SQUARE_DIM
 
     def _snap_float_to_nearest_multiple(self, value, multiple):
         if value % multiple > multiple/2: 
@@ -84,6 +118,7 @@ class Odometer:
         The first part updates the physical position by calculating distance traved using arc length of the wheel, and then the change
         in angle using a small angle approx.
         """
+        self._update_sensor_distance()
         L = self.robot.left_motor.get_encoder()
         R = self.robot.right_motor.get_encoder()
         # angle * radius = arc length
