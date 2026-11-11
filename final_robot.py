@@ -1,6 +1,7 @@
 from utils.brick import Motor, EV3ColorSensor, NXTColorSensor, EV3UltrasonicSensor, wait_ready_sensors, reset_brick
 from time import sleep
 from odometer import Odometer
+from map import Map
 
 class FinalRobot:
     
@@ -25,7 +26,7 @@ class FinalRobot:
 
 
 
-    def __init__(self, left_motor_id, right_motor_id, conveyer_motor_id, storage_motor_id, left_color_sensor_id, right_color_sensor_id, ultrasonic_sensor_id, left_sensor_of_type_EV3):
+    def __init__(self, left_motor_id, right_motor_id, conveyer_motor_id, storage_motor_id, left_color_sensor_id, right_color_sensor_id, ultrasonic_sensor_id):
         """
         Instantiates the robot, taking the port ids to connect to the sensors and motors, waits until sensors are ready to exit
 
@@ -57,6 +58,7 @@ class FinalRobot:
         self.odometer = Odometer(self, self.left_color_sensor, self.right_color_sensor)
 
         # Mapping
+        self.map = Map(self)
 
 
     # ============================================================
