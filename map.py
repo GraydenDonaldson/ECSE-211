@@ -24,9 +24,7 @@ class Map:
         """
         Assumes that the robot is facing the entrance into the street at the entrance
         """
-        
-        try:
-            while not self._at_exit():
+        while not self._at_exit():
                 # Move to center of the block
                 self.robot.go_distance(self.robot.SQUARE_DIM/2)
                 if self.robot.ultrasonic_sensor.distance() >= 100:
@@ -39,14 +37,4 @@ class Map:
                 self.step_list.append(step)
                 step()
                 sleep(self.robot.LOOP_DOWNTIME)
-        except KeyboardInterrupt:
-            print("Manualluy Interupted")
-        except self.TaskCompleted:
-            print("Successfully completed goal, terminated")
-        except Exception:
-            print_exc()
-        finally:
-            self.right_motor.set_dps(0)
-            self.left_motor.set_dps(0)
-            reset_brick()
         
